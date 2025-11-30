@@ -148,7 +148,7 @@ internal sealed partial class Scraper(HttpClient http) : IScraper
             _ => SkinType.Weapon
         };
 
-        var skin = new SkinInfo(
+        return new SkinInfo(
             Title: title,
             Image: NormalizeImageUrl(doc.DocumentNode.SelectSingleNode("//img[@class='show_inspect_img']")?.GetAttributeValue("src", string.Empty)),
             NameTag: ExtractNameTag(doc),
@@ -157,10 +157,10 @@ internal sealed partial class Scraper(HttpClient http) : IScraper
             PaintIndex: ParseInt(ps, "paint index"),
             PaintSeed: ParseInt(ps, "paint seed"),
             PaintWear: ParseFloat(ps, "磨损")
-        );
-
-        skin.Stickers = ParseStickers(doc);
-        return skin;
+        )
+        {
+            Stickers = ParseStickers(doc)
+        };
     }
 
     private static int ParseInt(List<string> ps, string key)
@@ -234,12 +234,16 @@ internal sealed partial class Scraper(HttpClient http) : IScraper
             var name = node.SelectSingleNode(".//div[@class='name']")?.InnerText?.Trim() ?? string.Empty;
             var wearText = node.InnerText;
             var wear = 0f;
-            var wearMatch = FloatPattern().Match(wearText.Contains("印花磨损") ? wearText : string.Empty);
-            if (wearMatch.Success)
+            var wearIndex = wearText.IndexOf("印花磨损");
+            if (wearIndex >= 0)
             {
-                float.TryParse(wearMatch.Value, out wear);
+                var wearMatch = FloatPattern().Match(wearText, wearIndex);
+                if (wearMatch.Success)
+                {
+                    _ = float.TryParse(wearMatch.Value, out wear);
+                }
             }
-            stickers.Add(new Sticker(id, slot++, wear / 100f, 0f, 0f, name));
+            stickers.Add(new Sticker(id, slot++, Math.Clamp(100f - wear, 0f, 100f) / 100f, 0f, 0f, name));
         }
         return stickers;
     }
