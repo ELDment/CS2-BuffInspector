@@ -1,4 +1,5 @@
-﻿using SwiftlyS2.Shared;
+﻿using System.Collections.Frozen;
+using SwiftlyS2.Shared;
 using SwiftlyS2.Shared.Plugins;
 using SwiftlyS2.Shared.Commands;
 using WeaponSkins.Shared;
@@ -11,10 +12,35 @@ public class BuffInspectorPlugin(ISwiftlyCore core) : BasePlugin(core)
     private IWeaponSkinAPI? weaponSkinApi;
     private HttpClient? httpClient;
     private IScraper? scraper;
+    private FrozenDictionary<string, int>? stickerNameToId;
 
     public override void UseSharedInterface(IInterfaceManager interfaceManager)
     {
         weaponSkinApi = interfaceManager.GetSharedInterface<IWeaponSkinAPI>("WeaponSkins.API");
+        stickerNameToId = weaponSkinApi?.StickerCollections
+            .SelectMany(x => x.Value.Stickers)
+            .Where(x => x.LocalizedNames.ContainsKey("schinese"))
+            .DistinctBy(x => x.LocalizedNames["schinese"])
+            .ToFrozenDictionary(x => x.LocalizedNames["schinese"], x => x.Index);
+    }
+
+    public override void Load(bool hotReload)
+    {
+        httpClient = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false })
+        {
+            BaseAddress = new Uri("https://buff.163.com")
+        };
+        httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 16_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) buff iPhone");
+
+        scraper = new Scraper(httpClient);
+    }
+
+    public override void Unload()
+    {
+        httpClient?.Dispose();
+        httpClient = null;
+        scraper?.Dispose();
+        scraper = null;
     }
 
     [Command("buff")]
@@ -67,13 +93,16 @@ public class BuffInspectorPlugin(ISwiftlyCore core) : BasePlugin(core)
                             skin.Nametag = skinInfo.NameTag;
                             foreach (var sticker in skinInfo.Stickers)
                             {
-                                skin.SetSticker(sticker.Slot, new StickerData
+                                if (stickerNameToId?.TryGetValue(sticker.Name.Trim(), out var id) ?? false)
                                 {
-                                    Id = sticker.Id,
-                                    Wear = sticker.Wear,
-                                    OffsetX = sticker.OffsetX,
-                                    OffsetY = sticker.OffsetY
-                                });
+                                    skin.SetSticker(sticker.Slot, new StickerData
+                                    {
+                                        Id = id,
+                                        Wear = sticker.Wear,
+                                        OffsetX = sticker.OffsetX,
+                                        OffsetY = sticker.OffsetY
+                                    });
+                                }
                             }
                         });
                         break;
@@ -105,24 +134,5 @@ public class BuffInspectorPlugin(ISwiftlyCore core) : BasePlugin(core)
                 context.Reply($"Error: {ex.Message}");
             }
         });
-    }
-
-    public override void Load(bool hotReload)
-    {
-        httpClient = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false })
-        {
-            BaseAddress = new Uri("https://buff.163.com")
-        };
-        httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 16_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) buff iPhone");
-
-        scraper = new Scraper(httpClient);
-    }
-
-    public override void Unload()
-    {
-        httpClient?.Dispose();
-        httpClient = null;
-        scraper?.Dispose();
-        scraper = null;
     }
 }
