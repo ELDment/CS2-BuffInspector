@@ -10,7 +10,7 @@ public class BuffInspectorPlugin(ISwiftlyCore core) : BasePlugin(core)
 {
     private IWeaponSkinAPI? weaponSkinApi;
     private HttpClient? httpClient;
-    private Scraper? scraper;
+    private IScraper? scraper;
 
     public override void UseSharedInterface(IInterfaceManager interfaceManager)
     {
@@ -68,6 +68,7 @@ public class BuffInspectorPlugin(ISwiftlyCore core) : BasePlugin(core)
     {
         httpClient?.Dispose();
         httpClient = null;
+        scraper?.Dispose();
         scraper = null;
     }
 }

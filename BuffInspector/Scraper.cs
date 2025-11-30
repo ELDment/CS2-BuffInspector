@@ -80,11 +80,32 @@ internal sealed partial class Scraper(HttpClient http) : IScraper
     [GeneratedRegex(@"[\d.]+")] private static partial Regex FloatPattern();
     [GeneratedRegex(@"(?<="")([^""]+)(?="")")] private static partial Regex QuotedTextPattern();
 
-    public async Task<SkinInfo> ScrapeAsync(string url)
+    private readonly CancellationTokenSource cts = new();
+    private volatile bool disposed;
+
+    ~Scraper()
     {
+        Dispose();
+    }
+
+    public void Dispose()
+    {
+        if (disposed)
+        {
+            return;
+        }
+        disposed = true;
+        cts.Cancel();
+        cts.Dispose();
+        GC.SuppressFinalize(this);
+    }
+
+    public async Task<SkinInfo> ScrapeAsync(string url, CancellationToken cancellationToken = default)
+    {
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cts.Token, cancellationToken);
         var path = ParseBuffUrl(url);
-        var query = await ResolveAssetQueryAsync(path);
-        var html = await http.GetStringAsync($"/market/m/item_detail?game=csgo&{query}");
+        var query = await ResolveAssetQueryAsync(path, linked.Token);
+        var html = await http.GetStringAsync($"/market/m/item_detail?game=csgo&{query}", linked.Token);
         return ParseSkinFromHtml(html);
     }
 
@@ -94,9 +115,9 @@ internal sealed partial class Scraper(HttpClient http) : IScraper
         return cleaned.StartsWith("buff.163.com") ? cleaned["buff.163.com".Length..] : throw new ScrapeException($"Not a buff.163.com URL: {url}");
     }
 
-    private async Task<string> ResolveAssetQueryAsync(string path)
+    private async Task<string> ResolveAssetQueryAsync(string path, CancellationToken cancellationToken)
     {
-        using var resp = await http.GetAsync(path, HttpCompletionOption.ResponseHeadersRead);
+        using var resp = await http.GetAsync(path, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         var redirect = resp.StatusCode is HttpStatusCode.Found ? resp.Headers.Location?.ToString() ?? throw new ScrapeException("Empty redirect") : throw new ScrapeException($"Expected redirect, got {resp.StatusCode}");
 
         var index = redirect.IndexOf('?');
