@@ -38,7 +38,7 @@ public class BuffInspectorPlugin(ISwiftlyCore core) : BasePlugin(core)
             try
             {
                 var skinInfo = await scraper.ScrapeAsync(url);
-                context.Reply($"Title: {skinInfo.Title}");
+                context.Reply($"Title: {skinInfo.Title} ({skinInfo.Type})");
                 context.Reply($"NameTag: {skinInfo.NameTag}");
                 context.Reply($"DefIndex: {skinInfo.DefIndex}, PaintIndex: {skinInfo.PaintIndex}");
                 context.Reply($"Seed: {skinInfo.PaintSeed}, Wear: {skinInfo.PaintWear:F10}");

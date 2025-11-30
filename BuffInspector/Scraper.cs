@@ -140,11 +140,20 @@ internal sealed partial class Scraper(HttpClient http) : IScraper
         var title = doc.DocumentNode.SelectSingleNode("//h3")?.InnerText?.Trim() ?? throw new ScrapeException("Title not found");
         var ps = doc.DocumentNode.SelectSingleNode("//div[@class='title-info-wrapper']")?.SelectNodes(".//p")?.Select(p => p.InnerText).ToList() ?? throw new ScrapeException("Info not found");
 
+        var defIndex = WeaponDefIndex.FirstOrDefault(kv => title.StartsWith(kv.Key)).Value is var d and > 0 ? d : throw new ScrapeException($"Unknown weapon: {title}");
+        var skinType = defIndex switch
+        {
+            >= 500 and <= 526 => SkinType.Knife,
+            >= 4725 => SkinType.Glove,
+            _ => SkinType.Weapon
+        };
+
         var skin = new SkinInfo(
             Title: title,
             Image: NormalizeImageUrl(doc.DocumentNode.SelectSingleNode("//img[@class='show_inspect_img']")?.GetAttributeValue("src", string.Empty)),
             NameTag: ExtractNameTag(doc),
-            DefIndex: WeaponDefIndex.FirstOrDefault(kv => title.StartsWith(kv.Key)).Value is var d and > 0 ? d : throw new ScrapeException($"Unknown weapon: {title}"),
+            Type: skinType,
+            DefIndex: defIndex,
             PaintIndex: ParseInt(ps, "paint index"),
             PaintSeed: ParseInt(ps, "paint seed"),
             PaintWear: ParseFloat(ps, "磨损")
