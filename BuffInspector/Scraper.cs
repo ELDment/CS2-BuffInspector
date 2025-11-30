@@ -199,12 +199,14 @@ internal sealed partial class Scraper(HttpClient http) : IScraper
             return null;
         }
 
-        var match = QuotedTextPattern().Match(node.InnerText);
-        if (match.Success)
+        var text = node.InnerText;
+        var index = text.IndexOf(':');
+        if (index < 0)
         {
-            return match.Value;
+            index = text.IndexOf('：');
         }
-        return null;
+
+        return index >= 0 ? text[(index + 1)..].Trim() : null;
     }
 
     private static List<Sticker> ParseStickers(HtmlDocument doc)
