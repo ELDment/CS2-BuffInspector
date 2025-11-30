@@ -79,6 +79,7 @@ internal sealed partial class Scraper(HttpClient http) : IScraper
     [GeneratedRegex(@"\d+")] private static partial Regex IntPattern();
     [GeneratedRegex(@"[\d.]+")] private static partial Regex FloatPattern();
     [GeneratedRegex(@"(?<="")([^""]+)(?="")")] private static partial Regex QuotedTextPattern();
+    [GeneratedRegex(@"/h/\d+")] private static partial Regex ImageHeightPattern();
 
     private readonly CancellationTokenSource cts = new();
     private volatile bool disposed;
@@ -141,7 +142,7 @@ internal sealed partial class Scraper(HttpClient http) : IScraper
 
         var skin = new SkinInfo(
             Title: title,
-            Image: doc.DocumentNode.SelectSingleNode("//img")?.GetAttributeValue("src", string.Empty),
+            Image: NormalizeImageUrl(doc.DocumentNode.SelectSingleNode("//img[@class='show_inspect_img']")?.GetAttributeValue("src", string.Empty)),
             NameTag: ExtractNameTag(doc),
             DefIndex: WeaponDefIndex.FirstOrDefault(kv => title.StartsWith(kv.Key)).Value is var d and > 0 ? d : throw new ScrapeException($"Unknown weapon: {title}"),
             PaintIndex: ParseInt(ps, "paint index"),
@@ -179,6 +180,15 @@ internal sealed partial class Scraper(HttpClient http) : IScraper
             }
         }
         throw new ScrapeException($"Cannot parse {key}");
+    }
+
+    private static string? NormalizeImageUrl(string? url)
+    {
+        if (string.IsNullOrEmpty(url))
+        {
+            return url;
+        }
+        return ImageHeightPattern().Replace(url, "/h/2600");
     }
 
     private static string? ExtractNameTag(HtmlDocument doc)

@@ -39,8 +39,10 @@ public class BuffInspectorPlugin(ISwiftlyCore core) : BasePlugin(core)
             {
                 var skinInfo = await scraper.ScrapeAsync(url);
                 context.Reply($"Title: {skinInfo.Title}");
+                context.Reply($"NameTag: {skinInfo.NameTag}");
                 context.Reply($"DefIndex: {skinInfo.DefIndex}, PaintIndex: {skinInfo.PaintIndex}");
                 context.Reply($"Seed: {skinInfo.PaintSeed}, Wear: {skinInfo.PaintWear:F10}");
+                context.Reply($"Image: {skinInfo.Image}");
                 if (skinInfo.Stickers.Count > 0)
                 {
                     context.Reply($"Stickers: {string.Join(", ", skinInfo.Stickers.Select(s => s.Name))}");
