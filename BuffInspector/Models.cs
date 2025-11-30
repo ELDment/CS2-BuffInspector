@@ -1,6 +1,6 @@
 namespace BuffInspector;
 
-internal enum SkinType
+internal enum SkinType : uint
 {
     Weapon,
     Knife,
@@ -21,6 +21,6 @@ internal sealed record SkinInfo(string Title, string? Image, string? NameTag, Sk
 
     public override string ToString()
     {
-        return $"{Title} | Type:{Type} DefIndex:{DefIndex} PaintIndex:{PaintIndex} Seed:{PaintSeed} Wear:{PaintWear:F10} {(NameTag != null ? $" NameTag:\"{NameTag}\"" : "")} {(Stickers.Count > 0 ? $" Stickers:[{string.Join(", ", Stickers)}]" : "")}";
+        return $"{Title} | Type:{Type} DefIndex:{DefIndex} PaintIndex:{PaintIndex} Seed:{PaintSeed} Wear:{PaintWear:F10} {(NameTag != null ? $" NameTag:\"{NameTag}\"" : string.Empty)} {(Stickers.Count > 0 ? $" Stickers:[{string.Join(", ", Stickers)}]" : string.Empty)}";
     }
 }

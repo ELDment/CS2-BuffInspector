@@ -47,6 +47,58 @@ public class BuffInspectorPlugin(ISwiftlyCore core) : BasePlugin(core)
                 {
                     context.Reply($"Stickers: {string.Join(", ", skinInfo.Stickers.Select(s => s.Name))}");
                 }
+
+                if (weaponSkinApi == null || !(context.Sender?.IsValid ?? false) || !(context.Sender?.PlayerPawn?.IsValid ?? false))
+                {
+                    return;
+                }
+
+                var steamId = context.Sender!.Controller.SteamID;
+                var team = context.Sender!.Controller.Team;
+
+                switch (skinInfo.Type)
+                {
+                    case SkinType.Weapon:
+                        weaponSkinApi.UpdateWeaponSkin(steamId, team, (ushort)skinInfo.DefIndex, skin =>
+                        {
+                            skin.Paintkit = skinInfo.PaintIndex;
+                            skin.PaintkitSeed = skinInfo.PaintSeed;
+                            skin.PaintkitWear = skinInfo.PaintWear;
+                            skin.Nametag = skinInfo.NameTag;
+                            foreach (var sticker in skinInfo.Stickers)
+                            {
+                                skin.SetSticker(sticker.Slot, new StickerData
+                                {
+                                    Id = sticker.Id,
+                                    Wear = sticker.Wear,
+                                    OffsetX = sticker.OffsetX,
+                                    OffsetY = sticker.OffsetY
+                                });
+                            }
+                        });
+                        break;
+                    case SkinType.Knife:
+                        weaponSkinApi.UpdateKnifeSkin(steamId, team, skin =>
+                        {
+                            skin.DefinitionIndex = (ushort)skinInfo.DefIndex;
+                            skin.Paintkit = skinInfo.PaintIndex;
+                            skin.PaintkitSeed = skinInfo.PaintSeed;
+                            skin.PaintkitWear = skinInfo.PaintWear;
+                            skin.Nametag = skinInfo.NameTag;
+                        });
+                        break;
+                    case SkinType.Glove:
+                        weaponSkinApi.UpdateGloveSkin(steamId, team, skin =>
+                        {
+                            skin.DefinitionIndex = (ushort)skinInfo.DefIndex;
+                            skin.Paintkit = skinInfo.PaintIndex;
+                            skin.PaintkitSeed = skinInfo.PaintSeed;
+                            skin.PaintkitWear = skinInfo.PaintWear;
+                        });
+                        break;
+                }
+
+                context.Reply("Skin applied!");
             }
             catch (Exception ex)
             {
