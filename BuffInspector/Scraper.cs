@@ -6,7 +6,7 @@ using HtmlAgilityPack;
 
 namespace BuffInspector;
 
-public sealed partial class Scraper(HttpClient http)
+internal sealed partial class Scraper(HttpClient http) : IScraper
 {
     private static readonly string[] AssetParams = ["classid", "instanceid", "contextid", "assetid"];
 
@@ -202,5 +202,3 @@ public sealed partial class Scraper(HttpClient http)
         return stickers;
     }
 }
-
-public class ScrapeException(string message) : Exception(message);

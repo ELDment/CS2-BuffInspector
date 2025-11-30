@@ -1,6 +1,6 @@
 namespace BuffInspector;
 
-public record Sticker(int Id, int Slot, float Wear, float OffsetX, float OffsetY, string Name)
+internal sealed record Sticker(int Id, int Slot, float Wear, float OffsetX, float OffsetY, string Name)
 {
     public override string ToString()
     {
@@ -8,7 +8,7 @@ public record Sticker(int Id, int Slot, float Wear, float OffsetX, float OffsetY
     }
 }
 
-public record SkinInfo(string Title, string? Image, string? NameTag, int DefIndex, int PaintIndex, int PaintSeed, float PaintWear)
+internal sealed record SkinInfo(string Title, string? Image, string? NameTag, int DefIndex, int PaintIndex, int PaintSeed, float PaintWear)
 {
     public List<Sticker> Stickers { get; set; } = [];
 
