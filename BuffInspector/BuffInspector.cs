@@ -3,6 +3,7 @@ using SwiftlyS2.Shared.Plugins;
 using SwiftlyS2.Shared.Commands;
 using SwiftlyS2.Core.Menus.OptionsBase;
 using WeaponSkins.Shared;
+using System.Data.Common;
 
 namespace BuffInspector;
 
@@ -78,7 +79,7 @@ public class BuffInspectorPlugin(ISwiftlyCore core) : BasePlugin(core)
 
                 skinInfo.Stickers
                     .Where(s => s.Id != 0)
-                    .Select(s => s.Id < 0 ? $"{s.Name} \x09解析失败" : $"{s.Name} \x05{1f - s.Wear:F4}")
+                    .Select(s => s.Id < 0 ? $"印花 \x0A»\x01 {s.Name} \x0F解析失败" : $"印花 \x0A»\x01 {s.Name} \x05{1f - s.Wear:F4}")
                     .ToList()
                     .ForEach(context.Reply);
 
