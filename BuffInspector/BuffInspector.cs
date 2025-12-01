@@ -91,6 +91,15 @@ public class BuffInspectorPlugin(ISwiftlyCore core) : BasePlugin(core)
                             skin.PaintkitSeed = skinInfo.PaintSeed;
                             skin.PaintkitWear = skinInfo.PaintWear;
                             skin.Nametag = skinInfo.NameTag;
+                            for (int i = 0; i <= 5; i++)
+                            {
+                                skin.SetSticker(i, new StickerData
+                                {
+                                    Id = 0,
+                                    Wear = 0,
+                                    Schema = 0
+                                });
+                            }
                             foreach (var sticker in skinInfo.Stickers)
                             {
                                 skin.SetSticker(sticker.Slot, new StickerData
