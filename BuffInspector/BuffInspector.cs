@@ -1,6 +1,7 @@
 ﻿using SwiftlyS2.Shared;
 using SwiftlyS2.Shared.Plugins;
 using SwiftlyS2.Shared.Commands;
+using SwiftlyS2.Core.Menus.OptionsBase;
 using WeaponSkins.Shared;
 
 namespace BuffInspector;
@@ -72,6 +73,11 @@ public class BuffInspectorPlugin(ISwiftlyCore core) : BasePlugin(core)
                 if (skinInfo.Stickers.Count > 0)
                 {
                     context.Reply($"Stickers: {string.Join(", ", skinInfo.Stickers.Select(s => s.Name))}");
+                }
+
+                if (!string.IsNullOrWhiteSpace(skinInfo.Image))
+                {
+                    context.Sender!.SendCenterHTML($"<img src='{skinInfo.Image}' />", 8000);
                 }
 
                 if (weaponSkinApi == null || !(context.Sender?.IsValid ?? false) || !(context.Sender?.PlayerPawn?.IsValid ?? false))

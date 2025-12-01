@@ -99,7 +99,7 @@ internal sealed partial class Scraper(HttpClient http, IWeaponSkinAPI? weaponSki
 
         return new SkinInfo(
             Title: title,
-            Image: NormalizeImageUrl(doc.DocumentNode.SelectSingleNode("//img[@class='show_inspect_img']")?.GetAttributeValue("src", string.Empty)),
+            Image: doc.DocumentNode.SelectSingleNode("//img[@class='show_inspect_img']")?.GetAttributeValue("src", string.Empty),
             NameTag: ExtractNameTag(doc),
             Type: skinType,
             DefinitionIndex: definitionIndex,
@@ -138,15 +138,6 @@ internal sealed partial class Scraper(HttpClient http, IWeaponSkinAPI? weaponSki
             }
         }
         throw new ScrapeException($"Cannot parse {key}");
-    }
-
-    private static string? NormalizeImageUrl(string? url)
-    {
-        if (string.IsNullOrEmpty(url))
-        {
-            return url;
-        }
-        return ImageHeightPattern().Replace(url, "/h/2600");
     }
 
     private static string? ExtractNameTag(HtmlDocument doc)
