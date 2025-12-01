@@ -160,20 +160,30 @@ internal sealed partial class Scraper(HttpClient http, IWeaponSkinAPI? weaponSki
 
     private List<Sticker> ParseStickers(HtmlDocument doc)
     {
+        var stickers = Enumerable.Range(0, 6)
+            .Select(i => new Sticker(0, i, 0f, 0f, 0f, string.Empty))
+            .ToList();
+
         var nodes = doc.DocumentNode.SelectNodes("//div[@class='stickers-card-item']");
         if (nodes == null)
         {
-            return [];
+            return stickers;
         }
 
-        var stickers = new List<Sticker>();
         foreach (var (node, slot) in nodes.Select((n, i) => (n, i)))
         {
+            if (slot > 5)
+            {
+                break;
+            }
+
             var name = node.SelectSingleNode(".//div[@class='name']")?.InnerText?.Trim() ?? string.Empty;
             if (!stickersNames.Value.TryGetValue(name, out var id))
             {
+                stickers[slot] = new Sticker(-1, slot, 0f, 0f, 0f, name);
                 continue;
             }
+
             var wearText = node.InnerText;
             var wear = 0f;
             var wearIndex = wearText.IndexOf("印花磨损");
@@ -185,7 +195,7 @@ internal sealed partial class Scraper(HttpClient http, IWeaponSkinAPI? weaponSki
                     _ = float.TryParse(wearMatch.Value, out wear);
                 }
             }
-            stickers.Add(new Sticker(id, slot, Math.Clamp(100f - wear, 0f, 100f) / 100f, 0f, 0f, name));
+            stickers[slot] = new Sticker(id, slot, Math.Clamp(100f - wear, 0f, 100f) / 100f, 0f, 0f, name);
         }
         return stickers;
     }

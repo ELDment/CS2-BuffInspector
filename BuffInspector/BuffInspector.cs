@@ -47,42 +47,44 @@ public class BuffInspectorPlugin(ISwiftlyCore core) : BasePlugin(core)
     [Command("buff")]
     public void BuffCommand(ICommandContext context)
     {
+        if (weaponSkinApi == null || !(context.Sender?.IsValid ?? false) || !(context.Sender?.PlayerPawn?.IsValid ?? false))
+        {
+            return;
+        }
+
         if (scraper == null)
         {
             context.Reply("Scraper not initialized!");
             return;
         }
 
-        if (context.Args.Length < 1)
+        if (context.Args.Length < 1 || string.IsNullOrWhiteSpace(context.Args[0]))
         {
             context.Reply("Usage: buff <url>");
             return;
         }
 
-        var url = context.Args[0];
         _ = Task.Run(async () =>
         {
             try
             {
-                var skinInfo = await scraper.ScrapeAsync(url);
-                context.Reply($"Title: {skinInfo.Title} ({skinInfo.Type})");
-                context.Reply($"NameTag: {skinInfo.NameTag}");
-                context.Reply($"DefinitionIndex: {skinInfo.DefinitionIndex}, PaintIndex: {skinInfo.PaintIndex}");
-                context.Reply($"Seed: {skinInfo.PaintSeed}, Wear: {skinInfo.PaintWear:F10}");
-                context.Reply($"Image: {skinInfo.Image}");
-                if (skinInfo.Stickers.Count > 0)
+                var skinInfo = await scraper.ScrapeAsync(context.Args[0]);
+                context.Reply($"» \x03{skinInfo.Title}");
+                context.Reply($"» 皮肤编号:{skinInfo.PaintIndex} | 图案模板:{skinInfo.PaintSeed} | \x09{skinInfo.PaintWear:F17}");
+                if (!string.IsNullOrWhiteSpace(skinInfo.NameTag))
                 {
-                    context.Reply($"Stickers: {string.Join(", ", skinInfo.Stickers.Select(s => s.Name))}");
+                    context.Reply($"» \x10标签:\"{skinInfo.NameTag}\"");
                 }
+
+                skinInfo.Stickers
+                    .Where(s => s.Id != 0)
+                    .Select(s => s.Id < 0 ? $"{s.Name} \x09解析失败" : $"{s.Name} \x05{1f - s.Wear:F4}")
+                    .ToList()
+                    .ForEach(context.Reply);
 
                 if (!string.IsNullOrWhiteSpace(skinInfo.Image))
                 {
                     context.Sender!.SendCenterHTML($"<img src='{skinInfo.Image}' />", 8000);
-                }
-
-                if (weaponSkinApi == null || !(context.Sender?.IsValid ?? false) || !(context.Sender?.PlayerPawn?.IsValid ?? false))
-                {
-                    return;
                 }
 
                 var steamId = context.Sender!.Controller.SteamID;
@@ -97,20 +99,11 @@ public class BuffInspectorPlugin(ISwiftlyCore core) : BasePlugin(core)
                             skin.PaintkitSeed = skinInfo.PaintSeed;
                             skin.PaintkitWear = skinInfo.PaintWear;
                             skin.Nametag = skinInfo.NameTag;
-                            for (int i = 0; i <= 5; i++)
-                            {
-                                skin.SetSticker(i, new StickerData
-                                {
-                                    Id = 0,
-                                    Wear = 0,
-                                    Schema = 0
-                                });
-                            }
                             foreach (var sticker in skinInfo.Stickers)
                             {
                                 skin.SetSticker(sticker.Slot, new StickerData
                                 {
-                                    Id = sticker.Id,
+                                    Id = sticker.Id >= 0 ? sticker.Id : 0,
                                     Wear = sticker.Wear,
                                     OffsetX = sticker.OffsetX,
                                     OffsetY = sticker.OffsetY
@@ -138,8 +131,6 @@ public class BuffInspectorPlugin(ISwiftlyCore core) : BasePlugin(core)
                         });
                         break;
                 }
-
-                context.Reply("Skin applied!");
             }
             catch (Exception ex)
             {
