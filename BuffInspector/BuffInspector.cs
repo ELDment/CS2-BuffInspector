@@ -1,4 +1,4 @@
-﻿using SwiftlyS2.Shared;
+using SwiftlyS2.Shared;
 using SwiftlyS2.Shared.Plugins;
 using SwiftlyS2.Shared.Commands;
 using SwiftlyS2.Core.Menus.OptionsBase;
@@ -74,12 +74,18 @@ public class BuffInspectorPlugin(ISwiftlyCore core) : BasePlugin(core)
                 context.Reply($"» 皮肤编号:{skinInfo.PaintIndex} | 图案模板:{skinInfo.PaintSeed} | \x09{skinInfo.PaintWear:F17}");
                 if (!string.IsNullOrWhiteSpace(skinInfo.NameTag))
                 {
-                    context.Reply($"» \x10标签:\"{skinInfo.NameTag}\"");
+                    context.Reply($"» \x10\"{skinInfo.NameTag}\"");
                 }
 
                 skinInfo.Stickers
                     .Where(s => s.Id != 0)
                     .Select(s => s.Id < 0 ? $"印花 \x0A»\x01 {s.Name} \x0F解析失败" : $"印花 \x0A»\x01 {s.Name} \x05{1f - s.Wear:F4}")
+                    .ToList()
+                    .ForEach(context.Reply);
+
+                skinInfo.Keychains
+                    .Where(s => s.Id != 0)
+                    .Select(s => s.Id < 0 ? $"挂件 \x0A»\x01 {s.Name} \x0F解析失败" : $"挂件 \x0A»\x01 \x0E{s.Name}")
                     .ToList()
                     .ForEach(context.Reply);
 
@@ -108,6 +114,17 @@ public class BuffInspectorPlugin(ISwiftlyCore core) : BasePlugin(core)
                                     Wear = sticker.Wear,
                                     OffsetX = sticker.OffsetX,
                                     OffsetY = sticker.OffsetY
+                                });
+                            }
+                            foreach (var keychain in skinInfo.Keychains)
+                            {
+                                skin.SetKeychain(keychain.Slot, new KeychainData
+                                {
+                                    Id = keychain.Id >= 0 ? keychain.Id : 0,
+                                    Seed = keychain.Seed,
+                                    OffsetX = keychain.OffsetX,
+                                    OffsetY = keychain.OffsetY,
+                                    OffsetZ = keychain.OffsetZ
                                 });
                             }
                         });

@@ -11,9 +11,15 @@ internal sealed partial class Scraper(HttpClient http, IWeaponSkinAPI? weaponSki
 {
     [GeneratedRegex(@"\d+")] private static partial Regex IntPattern();
     [GeneratedRegex(@"[\d.]+")] private static partial Regex FloatPattern();
-    [GeneratedRegex(@"/h/\d+")] private static partial Regex ImageHeightPattern();
 
     private static readonly string[] AssetParams = ["classid", "instanceid", "contextid", "assetid"];
+
+    private readonly Lazy<FrozenDictionary<string, int>> weaponsNames = new(() =>
+        weaponSkinApi?.Items.Values
+            .Where(x => x.LocalizedNames.ContainsKey("schinese"))
+            .DistinctBy(x => x.LocalizedNames["schinese"])
+            .ToFrozenDictionary(x => x.LocalizedNames["schinese"], x => x.Index)
+        ?? FrozenDictionary<string, int>.Empty);
 
     private readonly Lazy<FrozenDictionary<string, int>> stickersNames = new(() =>
         weaponSkinApi?.StickerCollections
@@ -23,8 +29,8 @@ internal sealed partial class Scraper(HttpClient http, IWeaponSkinAPI? weaponSki
             .ToFrozenDictionary(x => x.LocalizedNames["schinese"], x => x.Index)
         ?? FrozenDictionary<string, int>.Empty);
 
-    private readonly Lazy<FrozenDictionary<string, int>> weaponsNames = new(() =>
-        weaponSkinApi?.Items.Values
+    private readonly Lazy<FrozenDictionary<string, int>> keychainsNames = new(() =>
+        weaponSkinApi?.Keychains.Values
             .Where(x => x.LocalizedNames.ContainsKey("schinese"))
             .DistinctBy(x => x.LocalizedNames["schinese"])
             .ToFrozenDictionary(x => x.LocalizedNames["schinese"], x => x.Index)
@@ -108,7 +114,8 @@ internal sealed partial class Scraper(HttpClient http, IWeaponSkinAPI? weaponSki
             PaintWear: ParseFloat(ps, "磨损")
         )
         {
-            Stickers = ParseStickers(doc)
+            Stickers = ParseStickers(doc),
+            Keychains = ParseKeychains(doc)
         };
     }
 
@@ -170,17 +177,25 @@ internal sealed partial class Scraper(HttpClient http, IWeaponSkinAPI? weaponSki
             return stickers;
         }
 
-        foreach (var (node, slot) in nodes.Select((n, i) => (n, i)))
+        var slot = 0;
+        foreach (var node in nodes)
         {
             if (slot > 5)
             {
                 break;
             }
 
+            // Skip keychains
+            if (node.InnerText.Contains("挂件模板"))
+            {
+                continue;
+            }
+
             var name = node.SelectSingleNode(".//div[@class='name']")?.InnerText?.Trim() ?? string.Empty;
             if (!stickersNames.Value.TryGetValue(name, out var id))
             {
                 stickers[slot] = new Sticker(-1, slot, 0f, 0f, 0f, name);
+                slot++;
                 continue;
             }
 
@@ -196,7 +211,51 @@ internal sealed partial class Scraper(HttpClient http, IWeaponSkinAPI? weaponSki
                 }
             }
             stickers[slot] = new Sticker(id, slot, Math.Clamp(100f - wear, 0f, 100f) / 100f, 0f, 0f, name);
+            slot++;
         }
         return stickers;
+    }
+
+    private List<Keychain> ParseKeychains(HtmlDocument doc)
+    {
+        var keychains = Enumerable.Range(0, 2)
+            .Select(i => new Keychain(0, i, 0, 0f, 0f, 0f, string.Empty))
+            .ToList();
+
+        var nodes = doc.DocumentNode.SelectNodes("//div[@class='stickers-card-item']");
+        if (nodes == null)
+        {
+            return keychains;
+        }
+
+        var slot = 0;
+        foreach (var node in nodes)
+        {
+            if (slot > 0)
+            {
+                break;
+            }
+
+            var text = node.InnerText;
+            if (!text.Contains("挂件模板"))
+            {
+                continue;
+            }
+
+            var name = node.SelectSingleNode(".//div[@class='name']")?.InnerText?.Trim() ?? string.Empty;
+            if (!keychainsNames.Value.TryGetValue(name, out var id))
+            {
+                keychains[slot] = new Keychain(-1, slot, 0, 0f, 0f, 0f, name);
+                slot++;
+                continue;
+            }
+
+            var seedMatch = IntPattern().Match(text, text.IndexOf("挂件模板"));
+            var seed = seedMatch.Success && int.TryParse(seedMatch.Value, out var s) ? s : 0;
+
+            keychains[slot] = new Keychain(id, slot, seed, 0f, 0f, 0f, name);
+            slot++;
+        }
+        return keychains;
     }
 }
