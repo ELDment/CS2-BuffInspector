@@ -1,5 +1,4 @@
-﻿using System.Collections.Frozen;
-using SwiftlyS2.Shared;
+﻿using SwiftlyS2.Shared;
 using SwiftlyS2.Shared.Plugins;
 using SwiftlyS2.Shared.Commands;
 using WeaponSkins.Shared;
@@ -11,28 +10,29 @@ public class BuffInspectorPlugin(ISwiftlyCore core) : BasePlugin(core)
 {
     private IWeaponSkinAPI? weaponSkinApi;
     private HttpClient? httpClient;
-    private IScraper? scraper;
-    private FrozenDictionary<string, int>? stickerNameToId;
+    private Scraper? scraper;
 
     public override void UseSharedInterface(IInterfaceManager interfaceManager)
     {
+        base.UseSharedInterface(interfaceManager);
         weaponSkinApi = interfaceManager.GetSharedInterface<IWeaponSkinAPI>("WeaponSkins.API");
-        stickerNameToId = weaponSkinApi?.StickerCollections
-            .SelectMany(x => x.Value.Stickers)
-            .Where(x => x.LocalizedNames.ContainsKey("schinese"))
-            .DistinctBy(x => x.LocalizedNames["schinese"])
-            .ToFrozenDictionary(x => x.LocalizedNames["schinese"], x => x.Index);
     }
 
-    public override void Load(bool hotReload)
+    public override void OnSharedInterfaceInjected(IInterfaceManager interfaceManager)
     {
+        base.OnSharedInterfaceInjected(interfaceManager);
+
         httpClient = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false })
         {
             BaseAddress = new Uri("https://buff.163.com")
         };
         httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 16_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) buff iPhone");
 
-        scraper = new Scraper(httpClient);
+        scraper = new Scraper(httpClient, weaponSkinApi);
+    }
+
+    public override void Load(bool hotReload)
+    {
     }
 
     public override void Unload()
@@ -66,7 +66,7 @@ public class BuffInspectorPlugin(ISwiftlyCore core) : BasePlugin(core)
                 var skinInfo = await scraper.ScrapeAsync(url);
                 context.Reply($"Title: {skinInfo.Title} ({skinInfo.Type})");
                 context.Reply($"NameTag: {skinInfo.NameTag}");
-                context.Reply($"DefIndex: {skinInfo.DefIndex}, PaintIndex: {skinInfo.PaintIndex}");
+                context.Reply($"DefinitionIndex: {skinInfo.DefinitionIndex}, PaintIndex: {skinInfo.PaintIndex}");
                 context.Reply($"Seed: {skinInfo.PaintSeed}, Wear: {skinInfo.PaintWear:F10}");
                 context.Reply($"Image: {skinInfo.Image}");
                 if (skinInfo.Stickers.Count > 0)
@@ -85,7 +85,7 @@ public class BuffInspectorPlugin(ISwiftlyCore core) : BasePlugin(core)
                 switch (skinInfo.Type)
                 {
                     case SkinType.Weapon:
-                        weaponSkinApi.UpdateWeaponSkin(steamId, team, (ushort)skinInfo.DefIndex, skin =>
+                        weaponSkinApi.UpdateWeaponSkin(steamId, team, (ushort)skinInfo.DefinitionIndex, skin =>
                         {
                             skin.Paintkit = skinInfo.PaintIndex;
                             skin.PaintkitSeed = skinInfo.PaintSeed;
@@ -93,23 +93,20 @@ public class BuffInspectorPlugin(ISwiftlyCore core) : BasePlugin(core)
                             skin.Nametag = skinInfo.NameTag;
                             foreach (var sticker in skinInfo.Stickers)
                             {
-                                if (stickerNameToId?.TryGetValue(sticker.Name.Trim(), out var id) ?? false)
+                                skin.SetSticker(sticker.Slot, new StickerData
                                 {
-                                    skin.SetSticker(sticker.Slot, new StickerData
-                                    {
-                                        Id = id,
-                                        Wear = sticker.Wear,
-                                        OffsetX = sticker.OffsetX,
-                                        OffsetY = sticker.OffsetY
-                                    });
-                                }
+                                    Id = sticker.Id,
+                                    Wear = sticker.Wear,
+                                    OffsetX = sticker.OffsetX,
+                                    OffsetY = sticker.OffsetY
+                                });
                             }
                         });
                         break;
                     case SkinType.Knife:
                         weaponSkinApi.UpdateKnifeSkin(steamId, team, skin =>
                         {
-                            skin.DefinitionIndex = (ushort)skinInfo.DefIndex;
+                            skin.DefinitionIndex = (ushort)skinInfo.DefinitionIndex;
                             skin.Paintkit = skinInfo.PaintIndex;
                             skin.PaintkitSeed = skinInfo.PaintSeed;
                             skin.PaintkitWear = skinInfo.PaintWear;
@@ -119,7 +116,7 @@ public class BuffInspectorPlugin(ISwiftlyCore core) : BasePlugin(core)
                     case SkinType.Glove:
                         weaponSkinApi.UpdateGloveSkin(steamId, team, skin =>
                         {
-                            skin.DefinitionIndex = (ushort)skinInfo.DefIndex;
+                            skin.DefinitionIndex = (ushort)skinInfo.DefinitionIndex;
                             skin.Paintkit = skinInfo.PaintIndex;
                             skin.PaintkitSeed = skinInfo.PaintSeed;
                             skin.PaintkitWear = skinInfo.PaintWear;
