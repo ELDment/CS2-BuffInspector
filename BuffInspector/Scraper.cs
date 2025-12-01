@@ -62,7 +62,7 @@ internal sealed partial class Scraper(HttpClient http, IWeaponSkinAPI? weaponSki
     private static string ParseBuffUrl(string url)
     {
         var cleaned = url.Replace("https://", string.Empty).Replace("http://", string.Empty);
-        return cleaned.StartsWith("buff.163.com") ? cleaned["buff.163.com".Length..] : throw new ScrapeException($"Not a buff.163.com URL: {url}");
+        return cleaned.StartsWith("buff.163.com") ? cleaned["buff.163.com".Length..] : throw new ScrapeException("Invalid Buff share link");
     }
 
     private async Task<string> ResolveAssetQueryAsync(string path, CancellationToken cancellationToken)
