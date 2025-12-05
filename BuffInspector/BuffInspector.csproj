@@ -9,14 +9,19 @@
   <ItemGroup>
     <Reference Include="WeaponSkins.Shared">
       <HintPath>..\WeaponSkins.Shared.dll</HintPath>
+      <Private>false</Private>
     </Reference>
     <Reference Include="SwiftlyS2.CS2">
       <HintPath>..\SwiftlyS2.CS2.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="HtmlAgilityPack">
+      <HintPath>..\HtmlAgilityPack.dll</HintPath>
+      <Private>true</Private>
     </Reference>
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="HtmlAgilityPack" Version="1.12.4" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
   </ItemGroup>
 

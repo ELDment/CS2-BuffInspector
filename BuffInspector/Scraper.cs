@@ -3,100 +3,77 @@ using System.Web;
 using System.Collections.Frozen;
 using System.Text.RegularExpressions;
 using HtmlAgilityPack;
+using WeaponSkins.Shared;
 
 namespace BuffInspector;
 
-public sealed partial class Scraper(HttpClient http)
+internal sealed partial class Scraper(HttpClient http, IWeaponSkinAPI? weaponSkinApi) : IScraper
 {
-    private static readonly string[] AssetParams = ["classid", "instanceid", "contextid", "assetid"];
-
-    private static readonly FrozenDictionary<string, int> WeaponDefIndex = new Dictionary<string, int>
-    {
-        ["沙漠之鹰"] = 1,
-        ["双持贝瑞塔"] = 2,
-        ["FN57"] = 3,
-        ["格洛克 18 型"] = 4,
-        ["P2000"] = 32,
-        ["P250"] = 36,
-        ["Tec-9"] = 30,
-        ["CZ75 自动手枪"] = 63,
-        ["USP 消音版"] = 61,
-        ["R8 左轮手枪"] = 64,
-        ["MAC-10"] = 17,
-        ["MP5-SD"] = 23,
-        ["MP7"] = 33,
-        ["MP9"] = 34,
-        ["PP-野牛"] = 26,
-        ["P90"] = 19,
-        ["UMP-45"] = 24,
-        ["AK-47"] = 7,
-        ["AUG"] = 8,
-        ["AWP"] = 9,
-        ["法玛斯"] = 10,
-        ["G3SG1"] = 11,
-        ["加利尔 AR"] = 13,
-        ["M4A4"] = 16,
-        ["M4A1 消音型"] = 60,
-        ["SCAR-20"] = 38,
-        ["SG 553"] = 39,
-        ["SSG 08"] = 40,
-        ["M249"] = 14,
-        ["MAG-7"] = 27,
-        ["内格夫"] = 28,
-        ["新星"] = 35,
-        ["截短霰弹枪"] = 29,
-        ["XM1014"] = 25,
-        ["刺刀"] = 500,
-        ["海豹短刀"] = 503,
-        ["折叠刀"] = 505,
-        ["穿肠刀"] = 506,
-        ["爪子刀"] = 507,
-        ["M9 刺刀"] = 508,
-        ["猎杀者匕首"] = 509,
-        ["弯刀"] = 512,
-        ["鲍伊猎刀"] = 514,
-        ["蝴蝶刀"] = 515,
-        ["暗影双匕"] = 516,
-        ["系绳匕首"] = 517,
-        ["求生匕首"] = 518,
-        ["熊刀"] = 519,
-        ["折刀"] = 520,
-        ["流浪者匕首"] = 521,
-        ["短剑"] = 522,
-        ["锯齿爪刀"] = 523,
-        ["骷髅匕首"] = 525,
-        ["廓尔喀刀"] = 526,
-        ["狂牙手套"] = 4725,
-        ["血猎手套"] = 5027,
-        ["运动手套"] = 5030,
-        ["驾驶手套"] = 5031,
-        ["手部束带"] = 5032,
-        ["摩托手套"] = 5033,
-        ["专业手套"] = 5034,
-        ["九头蛇手套"] = 5035
-    }.ToFrozenDictionary();
-
     [GeneratedRegex(@"\d+")] private static partial Regex IntPattern();
     [GeneratedRegex(@"[\d.]+")] private static partial Regex FloatPattern();
-    [GeneratedRegex(@"(?<="")([^""]+)(?="")")] private static partial Regex QuotedTextPattern();
 
-    public async Task<SkinInfo> ScrapeAsync(string url)
+    private static readonly string[] AssetParams = ["classid", "instanceid", "contextid", "assetid"];
+
+    private readonly Lazy<FrozenDictionary<string, int>> weaponsNames = new(() =>
+        weaponSkinApi?.Items.Values
+            .Where(x => x.LocalizedNames.ContainsKey("schinese"))
+            .DistinctBy(x => x.LocalizedNames["schinese"])
+            .ToFrozenDictionary(x => x.LocalizedNames["schinese"], x => x.Index)
+        ?? FrozenDictionary<string, int>.Empty);
+
+    private readonly Lazy<FrozenDictionary<string, int>> stickersNames = new(() =>
+        weaponSkinApi?.StickerCollections
+            .SelectMany(x => x.Value.Stickers)
+            .Where(x => x.LocalizedNames.ContainsKey("schinese"))
+            .DistinctBy(x => x.LocalizedNames["schinese"])
+            .ToFrozenDictionary(x => x.LocalizedNames["schinese"], x => x.Index)
+        ?? FrozenDictionary<string, int>.Empty);
+
+    private readonly Lazy<FrozenDictionary<string, int>> keychainsNames = new(() =>
+        weaponSkinApi?.Keychains.Values
+            .Where(x => x.LocalizedNames.ContainsKey("schinese"))
+            .DistinctBy(x => x.LocalizedNames["schinese"])
+            .ToFrozenDictionary(x => x.LocalizedNames["schinese"], x => x.Index)
+        ?? FrozenDictionary<string, int>.Empty);
+
+    private readonly CancellationTokenSource cts = new();
+    private volatile bool disposed;
+
+    ~Scraper()
     {
+        Dispose();
+    }
+
+    public void Dispose()
+    {
+        if (disposed)
+        {
+            return;
+        }
+        disposed = true;
+        cts.Cancel();
+        cts.Dispose();
+        GC.SuppressFinalize(this);
+    }
+
+    public async Task<SkinInfo> ScrapeAsync(string url, CancellationToken cancellationToken = default)
+    {
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cts.Token, cancellationToken);
         var path = ParseBuffUrl(url);
-        var query = await ResolveAssetQueryAsync(path);
-        var html = await http.GetStringAsync($"/market/m/item_detail?game=csgo&{query}");
+        var query = await ResolveAssetQueryAsync(path, linked.Token);
+        var html = await http.GetStringAsync($"/market/m/item_detail?game=csgo&{query}", linked.Token);
         return ParseSkinFromHtml(html);
     }
 
     private static string ParseBuffUrl(string url)
     {
         var cleaned = url.Replace("https://", string.Empty).Replace("http://", string.Empty);
-        return cleaned.StartsWith("buff.163.com") ? cleaned["buff.163.com".Length..] : throw new ScrapeException($"Not a buff.163.com URL: {url}");
+        return cleaned.StartsWith("buff.163.com") ? cleaned["buff.163.com".Length..] : throw new ScrapeException("Invalid Buff share link");
     }
 
-    private async Task<string> ResolveAssetQueryAsync(string path)
+    private async Task<string> ResolveAssetQueryAsync(string path, CancellationToken cancellationToken)
     {
-        using var resp = await http.GetAsync(path, HttpCompletionOption.ResponseHeadersRead);
+        using var resp = await http.GetAsync(path, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         var redirect = resp.StatusCode is HttpStatusCode.Found ? resp.Headers.Location?.ToString() ?? throw new ScrapeException("Empty redirect") : throw new ScrapeException($"Expected redirect, got {resp.StatusCode}");
 
         var index = redirect.IndexOf('?');
@@ -118,18 +95,28 @@ public sealed partial class Scraper(HttpClient http)
         var title = doc.DocumentNode.SelectSingleNode("//h3")?.InnerText?.Trim() ?? throw new ScrapeException("Title not found");
         var ps = doc.DocumentNode.SelectSingleNode("//div[@class='title-info-wrapper']")?.SelectNodes(".//p")?.Select(p => p.InnerText).ToList() ?? throw new ScrapeException("Info not found");
 
-        var skin = new SkinInfo(
+        var definitionIndex = weaponsNames.Value.FirstOrDefault(kv => title.StartsWith(kv.Key, StringComparison.OrdinalIgnoreCase)).Value is var d and > 0 ? d : throw new ScrapeException($"Unknown weapon: {title}");
+        var skinType = definitionIndex switch
+        {
+            >= 500 and <= 526 => SkinType.Knife,
+            >= 4725 => SkinType.Glove,
+            _ => SkinType.Weapon
+        };
+
+        return new SkinInfo(
             Title: title,
-            Image: doc.DocumentNode.SelectSingleNode("//img")?.GetAttributeValue("src", string.Empty),
+            Image: doc.DocumentNode.SelectSingleNode("//img[@class='show_inspect_img']")?.GetAttributeValue("src", string.Empty),
             NameTag: ExtractNameTag(doc),
-            DefIndex: WeaponDefIndex.FirstOrDefault(kv => title.StartsWith(kv.Key)).Value is var d and > 0 ? d : throw new ScrapeException($"Unknown weapon: {title}"),
+            Type: skinType,
+            DefinitionIndex: definitionIndex,
             PaintIndex: ParseInt(ps, "paint index"),
             PaintSeed: ParseInt(ps, "paint seed"),
             PaintWear: ParseFloat(ps, "磨损")
-        );
-
-        skin.Stickers = ParseStickers(doc);
-        return skin;
+        )
+        {
+            Stickers = ParseStickers(doc),
+            Keychains = ParseKeychains(doc)
+        };
     }
 
     private static int ParseInt(List<string> ps, string key)
@@ -168,39 +155,107 @@ public sealed partial class Scraper(HttpClient http)
             return null;
         }
 
-        var match = QuotedTextPattern().Match(node.InnerText);
-        if (match.Success)
+        var text = node.InnerText;
+        var index = text.IndexOf(':');
+        if (index < 0)
         {
-            return match.Value;
+            index = text.IndexOf('：');
         }
-        return null;
+
+        return index >= 0 ? text[(index + 1)..].Trim() : null;
     }
 
-    private static List<Sticker> ParseStickers(HtmlDocument doc)
+    private List<Sticker> ParseStickers(HtmlDocument doc)
     {
+        var stickers = Enumerable.Range(0, 6)
+            .Select(i => new Sticker(0, i, 0f, 0f, 0f, string.Empty))
+            .ToList();
+
         var nodes = doc.DocumentNode.SelectNodes("//div[@class='stickers-card-item']");
         if (nodes == null)
         {
-            return [];
+            return stickers;
         }
 
-        var stickers = new List<Sticker>();
         var slot = 0;
         foreach (var node in nodes)
         {
-            var id = int.TryParse(node.GetAttributeValue("data-goods_id", string.Empty), out var gid) ? gid : 0;
+            if (slot > 5)
+            {
+                break;
+            }
+
+            // Skip keychains
+            if (node.InnerText.Contains("挂件模板"))
+            {
+                continue;
+            }
+
             var name = node.SelectSingleNode(".//div[@class='name']")?.InnerText?.Trim() ?? string.Empty;
+            if (!stickersNames.Value.TryGetValue(name, out var id))
+            {
+                stickers[slot] = new Sticker(-1, slot, 0f, 0f, 0f, name);
+                slot++;
+                continue;
+            }
+
             var wearText = node.InnerText;
             var wear = 0f;
-            var wearMatch = FloatPattern().Match(wearText.Contains("印花磨损") ? wearText : string.Empty);
-            if (wearMatch.Success)
+            var wearIndex = wearText.IndexOf("印花磨损");
+            if (wearIndex >= 0)
             {
-                float.TryParse(wearMatch.Value, out wear);
+                var wearMatch = FloatPattern().Match(wearText, wearIndex);
+                if (wearMatch.Success)
+                {
+                    _ = float.TryParse(wearMatch.Value, out wear);
+                }
             }
-            stickers.Add(new Sticker(id, slot++, wear / 100f, 0f, 0f, name));
+            stickers[slot] = new Sticker(id, slot, Math.Clamp(100f - wear, 0f, 100f) / 100f, 0f, 0f, name);
+            slot++;
         }
         return stickers;
     }
-}
 
-public class ScrapeException(string message) : Exception(message);
+    private List<Keychain> ParseKeychains(HtmlDocument doc)
+    {
+        var keychains = Enumerable.Range(0, 2)
+            .Select(i => new Keychain(0, i, 0, 0f, 0f, 0f, string.Empty))
+            .ToList();
+
+        var nodes = doc.DocumentNode.SelectNodes("//div[@class='stickers-card-item']");
+        if (nodes == null)
+        {
+            return keychains;
+        }
+
+        var slot = 0;
+        foreach (var node in nodes)
+        {
+            if (slot > 0)
+            {
+                break;
+            }
+
+            var text = node.InnerText;
+            if (!text.Contains("挂件模板"))
+            {
+                continue;
+            }
+
+            var name = node.SelectSingleNode(".//div[@class='name']")?.InnerText?.Trim() ?? string.Empty;
+            if (!keychainsNames.Value.TryGetValue(name, out var id))
+            {
+                keychains[slot] = new Keychain(-1, slot, 0, 0f, 0f, 0f, name);
+                slot++;
+                continue;
+            }
+
+            var seedMatch = IntPattern().Match(text, text.IndexOf("挂件模板"));
+            var seed = seedMatch.Success && int.TryParse(seedMatch.Value, out var s) ? s : 0;
+
+            keychains[slot] = new Keychain(id, slot, seed, 0f, 0f, 0f, name);
+            slot++;
+        }
+        return keychains;
+    }
+}
