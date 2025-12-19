@@ -67,22 +67,29 @@ internal sealed partial class Scraper(HttpClient http, IWeaponSkinAPI? weaponSki
 
     private static string ParseBuffUrl(string url)
     {
-        var cleaned = url.Replace("https://", string.Empty).Replace("http://", string.Empty);
-        return cleaned.StartsWith("buff.163.com") ? cleaned["buff.163.com".Length..] : throw new ScrapeException("Invalid Buff share link");
+        var cleaned = url.Trim().Replace("https://", string.Empty).Replace("http://", string.Empty);
+        return cleaned.StartsWith("buff.163.com") ? cleaned["buff.163.com".Length..] : throw new ScrapeException($"Invalid Buff share link: [{cleaned}]");
     }
 
     private async Task<string> ResolveAssetQueryAsync(string path, CancellationToken cancellationToken)
     {
-        using var resp = await http.GetAsync(path, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-        var redirect = resp.StatusCode is HttpStatusCode.Found ? resp.Headers.Location?.ToString() ?? throw new ScrapeException("Empty redirect") : throw new ScrapeException($"Expected redirect, got {resp.StatusCode}");
-
-        var index = redirect.IndexOf('?');
-        if (index < 0)
+        var index = path.IndexOf('?');
+        if (index < 0 || !AssetParams.All(p => !string.IsNullOrEmpty(HttpUtility.ParseQueryString(path[index..])[p])))
         {
-            throw new ScrapeException($"No query in redirect: {redirect}");
+            using var response = await http.GetAsync(path, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            if (response.StatusCode is HttpStatusCode.Found)
+            {
+                path = response.Headers.Location?.ToString() ?? throw new ScrapeException("Empty redirect");
+                index = path.IndexOf('?');
+            }
         }
 
-        var qs = HttpUtility.ParseQueryString(redirect[index..]);
+        if (index < 0)
+        {
+            throw new ScrapeException($"No query in: {path}");
+        }
+
+        var qs = HttpUtility.ParseQueryString(path[index..]);
         var missing = AssetParams.Where(p => string.IsNullOrEmpty(qs[p])).ToList();
         return missing.Count > 0 ? throw new ScrapeException($"Missing: {string.Join(", ", missing)}") : string.Join("&", AssetParams.Select(p => $"{p}={qs[p]}"));
     }
