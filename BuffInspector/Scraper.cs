@@ -1,7 +1,7 @@
-using System.Net;
-using System.Web;
 using System.Collections.Frozen;
+using System.Net;
 using System.Text.RegularExpressions;
+using System.Web;
 using HtmlAgilityPack;
 using WeaponSkins.Shared;
 
@@ -9,32 +9,44 @@ namespace BuffInspector;
 
 internal sealed partial class Scraper(HttpClient http, IWeaponSkinAPI? weaponSkinApi) : IScraper
 {
-    [GeneratedRegex(@"\d+")] private static partial Regex IntPattern();
-    [GeneratedRegex(@"[\d.]+")] private static partial Regex FloatPattern();
+    [GeneratedRegex(@"\d+")]
+    private static partial Regex IntPattern();
 
-    private static readonly string[] AssetParams = ["classid", "instanceid", "contextid", "assetid"];
+    [GeneratedRegex(@"[\d.]+")]
+    private static partial Regex FloatPattern();
+
+    private static readonly string[] AssetParams =
+    [
+        "classid",
+        "instanceid",
+        "contextid",
+        "assetid",
+    ];
 
     private readonly Lazy<FrozenDictionary<string, int>> weaponsNames = new(() =>
-        weaponSkinApi?.Items.Values
-            .Where(x => x.LocalizedNames.ContainsKey("schinese"))
+        weaponSkinApi
+            ?.Items.Values.Where(x => x.LocalizedNames.ContainsKey("schinese"))
             .DistinctBy(x => x.LocalizedNames["schinese"])
             .ToFrozenDictionary(x => x.LocalizedNames["schinese"], x => x.Index)
-        ?? FrozenDictionary<string, int>.Empty);
+        ?? FrozenDictionary<string, int>.Empty
+    );
 
     private readonly Lazy<FrozenDictionary<string, int>> stickersNames = new(() =>
-        weaponSkinApi?.StickerCollections
-            .SelectMany(x => x.Value.Stickers)
+        weaponSkinApi
+            ?.StickerCollections.SelectMany(x => x.Value.Stickers)
             .Where(x => x.LocalizedNames.ContainsKey("schinese"))
             .DistinctBy(x => x.LocalizedNames["schinese"])
             .ToFrozenDictionary(x => x.LocalizedNames["schinese"], x => x.Index)
-        ?? FrozenDictionary<string, int>.Empty);
+        ?? FrozenDictionary<string, int>.Empty
+    );
 
     private readonly Lazy<FrozenDictionary<string, int>> keychainsNames = new(() =>
-        weaponSkinApi?.Keychains.Values
-            .Where(x => x.LocalizedNames.ContainsKey("schinese"))
+        weaponSkinApi
+            ?.Keychains.Values.Where(x => x.LocalizedNames.ContainsKey("schinese"))
             .DistinctBy(x => x.LocalizedNames["schinese"])
             .ToFrozenDictionary(x => x.LocalizedNames["schinese"], x => x.Index)
-        ?? FrozenDictionary<string, int>.Empty);
+        ?? FrozenDictionary<string, int>.Empty
+    );
 
     private readonly CancellationTokenSource cts = new();
     private volatile bool disposed;
@@ -56,30 +68,55 @@ internal sealed partial class Scraper(HttpClient http, IWeaponSkinAPI? weaponSki
         GC.SuppressFinalize(this);
     }
 
-    public async Task<SkinInfo> ScrapeAsync(string url, CancellationToken cancellationToken = default)
+    public async Task<SkinInfo> ScrapeAsync(
+        string url,
+        CancellationToken cancellationToken = default
+    )
     {
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cts.Token, cancellationToken);
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(
+            cts.Token,
+            cancellationToken
+        );
         var path = ParseBuffUrl(url);
         var query = await ResolveAssetQueryAsync(path, linked.Token);
-        var html = await http.GetStringAsync($"/market/m/item_detail?game=csgo&{query}", linked.Token);
+        var html = await http.GetStringAsync(
+            $"/market/m/item_detail?game=csgo&{query}",
+            linked.Token
+        );
         return ParseSkinFromHtml(html);
     }
 
     private static string ParseBuffUrl(string url)
     {
         var cleaned = url.Trim().Replace("https://", string.Empty).Replace("http://", string.Empty);
-        return cleaned.StartsWith("buff.163.com") ? cleaned["buff.163.com".Length..] : throw new ScrapeException($"Invalid Buff share link: [{cleaned}]");
+        return cleaned.StartsWith("buff.163.com")
+            ? cleaned["buff.163.com".Length..]
+            : throw new ScrapeException($"Invalid Buff share link: [{cleaned}]");
     }
 
-    private async Task<string> ResolveAssetQueryAsync(string path, CancellationToken cancellationToken)
+    private async Task<string> ResolveAssetQueryAsync(
+        string path,
+        CancellationToken cancellationToken
+    )
     {
         var index = path.IndexOf('?');
-        if (index < 0 || !AssetParams.All(p => !string.IsNullOrEmpty(HttpUtility.ParseQueryString(path[index..])[p])))
+        if (
+            index < 0
+            || !AssetParams.All(p =>
+                !string.IsNullOrEmpty(HttpUtility.ParseQueryString(path[index..])[p])
+            )
+        )
         {
-            using var response = await http.GetAsync(path, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            using var response = await http.GetAsync(
+                path,
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken
+            );
             if (response.StatusCode is HttpStatusCode.Found)
             {
-                path = response.Headers.Location?.ToString() ?? throw new ScrapeException("Empty redirect");
+                path =
+                    response.Headers.Location?.ToString()
+                    ?? throw new ScrapeException("Empty redirect");
                 index = path.IndexOf('?');
             }
         }
@@ -91,7 +128,9 @@ internal sealed partial class Scraper(HttpClient http, IWeaponSkinAPI? weaponSki
 
         var qs = HttpUtility.ParseQueryString(path[index..]);
         var missing = AssetParams.Where(p => string.IsNullOrEmpty(qs[p])).ToList();
-        return missing.Count > 0 ? throw new ScrapeException($"Missing: {string.Join(", ", missing)}") : string.Join("&", AssetParams.Select(p => $"{p}={qs[p]}"));
+        return missing.Count > 0
+            ? throw new ScrapeException($"Missing: {string.Join(", ", missing)}")
+            : string.Join("&", AssetParams.Select(p => $"{p}={qs[p]}"));
     }
 
     private SkinInfo ParseSkinFromHtml(string html)
@@ -99,20 +138,36 @@ internal sealed partial class Scraper(HttpClient http, IWeaponSkinAPI? weaponSki
         var doc = new HtmlDocument();
         doc.LoadHtml(html);
 
-        var title = doc.DocumentNode.SelectSingleNode("//h3")?.InnerText?.Trim() ?? throw new ScrapeException("Title not found");
-        var ps = doc.DocumentNode.SelectSingleNode("//div[@class='title-info-wrapper']")?.SelectNodes(".//p")?.Select(p => p.InnerText).ToList() ?? throw new ScrapeException("Info not found");
+        var title =
+            doc.DocumentNode.SelectSingleNode("//h3")?.InnerText?.Trim()
+            ?? throw new ScrapeException("Title not found");
+        var ps =
+            doc.DocumentNode.SelectSingleNode("//div[@class='title-info-wrapper']")
+                ?.SelectNodes(".//p")
+                ?.Select(p => p.InnerText)
+                .ToList()
+            ?? throw new ScrapeException("Info not found");
 
-        var definitionIndex = weaponsNames.Value.FirstOrDefault(kv => title.StartsWith(kv.Key, StringComparison.OrdinalIgnoreCase)).Value is var d and > 0 ? d : throw new ScrapeException($"Unknown weapon: {title}");
+        var definitionIndex = weaponsNames
+            .Value.FirstOrDefault(kv =>
+                title.StartsWith(kv.Key, StringComparison.OrdinalIgnoreCase)
+            )
+            .Value
+            is var d
+                and > 0
+            ? d
+            : throw new ScrapeException($"Unknown weapon: {title}");
         var skinType = definitionIndex switch
         {
             >= 500 and <= 526 => SkinType.Knife,
             >= 4725 => SkinType.Glove,
-            _ => SkinType.Weapon
+            _ => SkinType.Weapon,
         };
 
         return new SkinInfo(
             Title: title,
-            Image: doc.DocumentNode.SelectSingleNode("//img[@class='show_inspect_img']")?.GetAttributeValue("src", string.Empty),
+            Image: doc.DocumentNode.SelectSingleNode("//img[@class='show_inspect_img']")
+                ?.GetAttributeValue("src", string.Empty),
             NameTag: ExtractNameTag(doc),
             Type: skinType,
             DefinitionIndex: definitionIndex,
@@ -122,7 +177,7 @@ internal sealed partial class Scraper(HttpClient http, IWeaponSkinAPI? weaponSki
         )
         {
             Stickers = ParseStickers(doc),
-            Keychains = ParseKeychains(doc)
+            Keychains = ParseKeychains(doc),
         };
     }
 
@@ -174,7 +229,8 @@ internal sealed partial class Scraper(HttpClient http, IWeaponSkinAPI? weaponSki
 
     private List<Sticker> ParseStickers(HtmlDocument doc)
     {
-        var stickers = Enumerable.Range(0, 6)
+        var stickers = Enumerable
+            .Range(0, 6)
             .Select(i => new Sticker(0, i, 0f, 0f, 0f, string.Empty))
             .ToList();
 
@@ -198,7 +254,8 @@ internal sealed partial class Scraper(HttpClient http, IWeaponSkinAPI? weaponSki
                 continue;
             }
 
-            var name = node.SelectSingleNode(".//div[@class='name']")?.InnerText?.Trim() ?? string.Empty;
+            var name =
+                node.SelectSingleNode(".//div[@class='name']")?.InnerText?.Trim() ?? string.Empty;
             if (!stickersNames.Value.TryGetValue(name, out var id))
             {
                 stickers[slot] = new Sticker(-1, slot, 0f, 0f, 0f, name);
@@ -217,7 +274,14 @@ internal sealed partial class Scraper(HttpClient http, IWeaponSkinAPI? weaponSki
                     _ = float.TryParse(wearMatch.Value, out wear);
                 }
             }
-            stickers[slot] = new Sticker(id, slot, Math.Clamp(100f - wear, 0f, 100f) / 100f, 0f, 0f, name);
+            stickers[slot] = new Sticker(
+                id,
+                slot,
+                Math.Clamp(100f - wear, 0f, 100f) / 100f,
+                0f,
+                0f,
+                name
+            );
             slot++;
         }
         return stickers;
@@ -225,7 +289,8 @@ internal sealed partial class Scraper(HttpClient http, IWeaponSkinAPI? weaponSki
 
     private List<Keychain> ParseKeychains(HtmlDocument doc)
     {
-        var keychains = Enumerable.Range(0, 2)
+        var keychains = Enumerable
+            .Range(0, 2)
             .Select(i => new Keychain(0, i, 0, 0f, 0f, 0f, string.Empty))
             .ToList();
 
@@ -249,7 +314,8 @@ internal sealed partial class Scraper(HttpClient http, IWeaponSkinAPI? weaponSki
                 continue;
             }
 
-            var name = node.SelectSingleNode(".//div[@class='name']")?.InnerText?.Trim() ?? string.Empty;
+            var name =
+                node.SelectSingleNode(".//div[@class='name']")?.InnerText?.Trim() ?? string.Empty;
             if (!keychainsNames.Value.TryGetValue(name, out var id))
             {
                 keychains[slot] = new Keychain(-1, slot, 0, 0f, 0f, 0f, name);
