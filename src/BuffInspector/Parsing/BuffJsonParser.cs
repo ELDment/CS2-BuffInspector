@@ -47,7 +47,6 @@ internal static class BuffJsonParser
         return new ItemData
         {
             Title = ReadText(goods, "name"),
-            Image = ReadText(info, "icon_url") ?? ReadText(goods, "icon_url"),
             NameTag = ReadText(info, "custom_name") ?? ReadText(info, "nametag"),
             DefinitionIndex = ReadInteger(info, "defindex"),
             PaintIndex = ReadInteger(info, "paintindex"),

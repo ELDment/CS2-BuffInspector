@@ -7,6 +7,7 @@ public sealed class BuffOptions
     public int MaxRedirects { get; init; } = 5;
     public int MaxResponseBytes { get; init; } = 2 * 1024 * 1024;
     public int PreviewDurationMilliseconds { get; init; } = 8000;
+    public int PreviewImageWidth { get; init; } = 300;
 
     internal void Validate()
     {
@@ -19,9 +20,10 @@ public sealed class BuffOptions
             || MaxRedirects == int.MaxValue
             || MaxResponseBytes <= 0
             || PreviewDurationMilliseconds < 0
+            || PreviewImageWidth <= 0
         )
         {
-            throw new InvalidOperationException("BUFF 配置无效：请检查超时、跳转次数、响应大小和预览时长。");
+            throw new InvalidOperationException("BUFF 配置无效：请检查超时、跳转次数、响应大小、预览时长和图片宽度。");
         }
     }
 }

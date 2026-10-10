@@ -52,7 +52,7 @@ internal sealed record BuffLink(Uri Uri, string GoodsId, string AssetId, string 
 
     public Uri DetailUri =>
         BuildUri(
-            "/market/item_detail",
+            "/market/m/item_detail",
             new Dictionary<string, string>
             {
                 ["game"] = "csgo",

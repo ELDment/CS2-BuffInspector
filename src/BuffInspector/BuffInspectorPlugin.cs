@@ -154,7 +154,7 @@ public sealed class BuffInspectorPlugin(ISwiftlyCore core) : BasePlugin(core)
                     var resolved = skins.Resolve(info!);
                     skins.Apply(steamId, team, resolved);
                     SkinPresenter.Reply(resolved, context.Reply);
-                    if (options.PreviewDurationMilliseconds > 0 && SkinPresenter.ImageHtml(resolved.Image) is { } image)
+                    if (options.PreviewDurationMilliseconds > 0 && SkinPresenter.ImageHtml(resolved.Image, options.PreviewImageWidth) is { } image)
                     {
                         player.SendCenterHTML(image, options.PreviewDurationMilliseconds);
                     }

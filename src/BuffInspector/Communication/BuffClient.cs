@@ -138,7 +138,9 @@ internal sealed class BuffClient(HttpClient http, ILogger logger, BuffOptions? s
         {
             BuffLink.Validate(uri);
             using var request = new HttpRequestMessage(HttpMethod.Get, uri);
-            request.Headers.UserAgent.ParseAdd("BuffInspector/1.0");
+            request.Headers.UserAgent.ParseAdd(
+                json ? "BuffInspector/1.0" : "Mozilla/5.0 (iPhone; CPU iPhone OS 16_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) buff iPhone"
+            );
             request.Headers.Accept.ParseAdd(json ? "application/json" : "text/html");
             request.Headers.AcceptLanguage.ParseAdd("zh-CN,zh;q=0.9,en;q=0.8");
             request.Headers.Referrer = referer;
