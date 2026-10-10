@@ -1,0 +1,12 @@
+{
+  "[csharp]": {
+    "editor.defaultFormatter": "csharpier.csharpier-vscode",
+    "editor.formatOnSave": true,
+    "editor.formatOnSaveMode": "file",
+    "editor.codeActionsOnSave": {
+      "source.fixAll": "explicit"
+    },
+    "files.insertFinalNewline": true,
+    "files.trimFinalNewlines": false
+  }
+}

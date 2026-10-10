@@ -11,7 +11,7 @@ branches:
     tag: beta
     is-release-branch: false
     is-mainline: false
-    source-branches: [master]
+    source-branches: [ master ]
 ignore:
   sha: []
 commit-message-incrementing: Enabled
