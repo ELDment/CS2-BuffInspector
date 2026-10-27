@@ -7,11 +7,11 @@ using Microsoft.Extensions.Logging;
 
 namespace BuffInspector.Communication;
 
-internal sealed class BuffClient(HttpClient http, ILogger logger, BuffOptions? settings = null)
+internal sealed class BuffClient(HttpClient http, ILogger logger, BuffNetworkOptions? settings = null)
 {
-    private readonly BuffOptions options = settings ?? new();
+    private readonly BuffNetworkOptions options = settings ?? new();
 
-    public static HttpClient CreateHttpClient(BuffOptions options) =>
+    public static HttpClient CreateHttpClient(BuffNetworkOptions options) =>
         new(
             new HttpClientHandler
             {

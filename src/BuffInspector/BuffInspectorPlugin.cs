@@ -1,4 +1,3 @@
-using System.Text.Json;
 using BuffInspector.Communication;
 using BuffInspector.Domain;
 using BuffInspector.Integration;
@@ -20,17 +19,17 @@ public sealed class BuffInspectorPlugin(ISwiftlyCore core) : BasePlugin(core)
     private BuffClient? client;
     private WeaponSkinService? skins;
     private BuffOptions options = new();
+    private BuffNetworkOptions networkOptions = new();
 
     public override void Load(bool hotReload)
     {
-        const string configFile = "buff-inspector.jsonc";
-        Core.Configuration.InitializeJsonWithModel<BuffOptions>(configFile, "Main", addMissingKeys: true);
-        using var document = JsonDocument.Parse(
-            File.ReadAllText(Core.Configuration.GetConfigPath(configFile)),
-            new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true }
-        );
-        options = document.RootElement.GetProperty("Main").Deserialize<BuffOptions>() ?? throw new InvalidOperationException("BUFF 配置为空。");
-        options.Validate();
+        var configPath = Core.Configuration.GetConfigPath("buff-inspector.jsonc");
+        BuffConfiguration.MigrateNetwork(configPath);
+        Core.Configuration.InitializeJsonWithModel<BuffOptions>("buff-inspector.jsonc", "Main", addMissingKeys: true);
+        Core.Configuration.InitializeJsonWithModel<BuffNetworkOptions>("buff-inspector.jsonc", "Network", addMissingKeys: true);
+        var configuration = BuffConfiguration.Parse(File.ReadAllText(configPath));
+        options = configuration.Main;
+        networkOptions = configuration.Network;
     }
 
     public override void UseSharedInterface(IInterfaceManager interfaceManager)
@@ -41,8 +40,8 @@ public sealed class BuffInspectorPlugin(ISwiftlyCore core) : BasePlugin(core)
     public override void OnSharedInterfaceInjected(IInterfaceManager interfaceManager)
     {
         http?.Dispose();
-        http = BuffClient.CreateHttpClient(options);
-        client = new BuffClient(http, Core.Logger, options);
+        http = BuffClient.CreateHttpClient(networkOptions);
+        client = new BuffClient(http, Core.Logger, networkOptions);
     }
 
     public override void Unload()
@@ -95,7 +94,7 @@ public sealed class BuffInspectorPlugin(ISwiftlyCore core) : BasePlugin(core)
     )
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(stopping);
-        timeout.CancelAfter(TimeSpan.FromSeconds(options.OperationTimeoutSeconds));
+        timeout.CancelAfter(TimeSpan.FromSeconds(networkOptions.OperationTimeoutSeconds));
         SkinInfo? info = null;
         string? failure = null;
         try

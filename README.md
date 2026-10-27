@@ -8,9 +8,9 @@
 !buff <BUFF 分享链接>
 ```
 
-SwiftlyS2 自动生成配置文件：`swiftlys2/configs/plugins/BuffInspector/buff-inspector.jsonc`。
+## 配置
 
-`Main.AutoEquipWeapon` 默认为 `true`，该配置会自动替换并切换到对应武器。
+SwiftlyS2 自动生成配置文件：`swiftlys2/configs/plugins/BuffInspector/buff-inspector.jsonc`。
 
 ## 演示
 
@@ -28,7 +28,3 @@ dotnet build BuffInspector.sln -c Release
 ```
 
 将 `src/BuffInspector/bin/Release/net10.0/` 内文件复制到服务器的 `swiftlys2/plugins/BuffInspector/`。
-
-## 许可证
-
-[GPL-3.0](LICENSE)
