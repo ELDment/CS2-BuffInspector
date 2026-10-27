@@ -8,10 +8,14 @@
 !buff <BUFF 分享链接>
 ```
 
-## 截图
+SwiftlyS2 自动生成配置文件：`swiftlys2/configs/plugins/BuffInspector/buff-inspector.jsonc`。
 
-![BuffInspector1](docs/BuffInspector1.png)
-![BuffInspector2](docs/BuffInspector2.png)
+`Main.AutoEquipWeapon` 默认为 `true`，该配置会自动替换并切换到对应武器。
+
+## 演示
+
+![BuffInspector1](assets/BuffInspector1.png)
+![BuffInspector2](assets/BuffInspector2.png)
 
 ## 依赖与构建
 

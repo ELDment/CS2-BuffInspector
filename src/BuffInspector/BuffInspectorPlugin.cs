@@ -24,7 +24,7 @@ public sealed class BuffInspectorPlugin(ISwiftlyCore core) : BasePlugin(core)
     public override void Load(bool hotReload)
     {
         const string configFile = "buff-inspector.jsonc";
-        Core.Configuration.InitializeJsonWithModel<BuffOptions>(configFile, "Main");
+        Core.Configuration.InitializeJsonWithModel<BuffOptions>(configFile, "Main", addMissingKeys: true);
         using var document = JsonDocument.Parse(
             File.ReadAllText(Core.Configuration.GetConfigPath(configFile)),
             new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true }
@@ -152,7 +152,7 @@ public sealed class BuffInspectorPlugin(ISwiftlyCore core) : BasePlugin(core)
                         return;
                     }
                     var resolved = skins.Resolve(info!);
-                    skins.Apply(steamId, team, resolved);
+                    skins.Apply(player, Core.Helpers, resolved, options.AutoEquipWeapon);
                     SkinPresenter.Reply(resolved, context.Reply);
                     if (options.PreviewDurationMilliseconds > 0 && SkinPresenter.ImageHtml(resolved.Image, options.PreviewImageWidth) is { } image)
                     {

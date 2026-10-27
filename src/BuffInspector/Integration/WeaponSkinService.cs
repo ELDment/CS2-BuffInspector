@@ -1,6 +1,8 @@
 using System.Collections.Frozen;
 using BuffInspector.Domain;
+using SwiftlyS2.Shared.Helpers;
 using SwiftlyS2.Shared.Players;
+using SwiftlyS2.Shared.SchemaDefinitions;
 using WeaponSkins.Shared;
 
 namespace BuffInspector.Integration;
@@ -52,11 +54,89 @@ internal sealed class WeaponSkinService
         };
     }
 
-    public void Apply(ulong steamId, Team team, SkinInfo info)
+    public void Apply(IPlayer player, IHelpers helpers, SkinInfo info, bool autoEquipWeapon)
+    {
+        var definition = checked((ushort)info.DefinitionIndex!.Value);
+        var steamId = player.Controller.SteamID;
+        var team = player.Controller.Team;
+        if (!autoEquipWeapon || definition > 5000)
+        {
+            ApplySkin(steamId, team, info);
+            return;
+        }
+        if (
+            !player.IsAlive
+            || player.PlayerPawn is not { IsValid: true } pawn
+            || pawn.WeaponServices is not { IsValid: true } weaponServices
+            || pawn.ItemServices is not { IsValid: true } itemServices
+        )
+        {
+            throw new BuffException("请在存活时使用 !buff 切换武器。");
+        }
+
+        // Give the default knife so WeaponSkins can apply the selected knife model.
+        var isKnife = IsKnife(definition);
+        var className = isKnife ? "weapon_knife" : helpers.GetClassnameByDefinitionIndex(definition);
+        var weaponData = helpers.GetWeaponCSDataFromKey(isKnife ? 42 : definition);
+        if (string.IsNullOrWhiteSpace(className) || weaponData is not { IsValid: true } || weaponData.GearSlot == gear_slot_t.GEAR_SLOT_INVALID)
+        {
+            throw new BuffException("无法获取该武器的实体或槽位信息，请检查 SwiftlyS2 数据。");
+        }
+
+        // Remove before updating skins: WeaponSkins otherwise queues a second regive for existing weapons.
+        foreach (var handle in weaponServices.MyWeapons.ToArray())
+        {
+            if (handle.Value is not { IsValid: true } weapon)
+            {
+                continue;
+            }
+            if (
+                ShouldReplaceWeapon(
+                    definition,
+                    weaponData.GearSlot,
+                    weapon.AttributeManager.Item.ItemDefinitionIndex,
+                    weapon.As<CCSWeaponBase>().WeaponBaseVData.GearSlot
+                )
+            )
+            {
+                weaponServices.RemoveWeapon(weapon);
+            }
+        }
+
+        ApplySkin(steamId, team, info);
+        var newWeapon = itemServices.GiveItem<CBasePlayerWeapon>(className);
+        if (newWeapon is not { IsValid: true })
+        {
+            throw new BuffException("皮肤已更新，但武器发放失败，请重试或检查服务器日志。");
+        }
+        weaponServices.SelectWeapon(newWeapon);
+    }
+
+    internal static bool ShouldReplaceWeapon(int definition, gear_slot_t slot, int currentDefinition, gear_slot_t currentSlot)
+    {
+        if (definition == currentDefinition)
+        {
+            return true;
+        }
+        if (IsKnife(definition))
+        {
+            return IsKnife(currentDefinition);
+        }
+        // The taser may share a gear slot with another weapon; only replace another taser.
+        if (definition == (int)ItemDefinitionIndex.Taser || currentDefinition == (int)ItemDefinitionIndex.Taser || IsKnife(currentDefinition))
+        {
+            return false;
+        }
+        return slot is gear_slot_t.GEAR_SLOT_RIFLE or gear_slot_t.GEAR_SLOT_PISTOL && currentSlot == slot;
+    }
+
+    private static bool IsKnife(int definition) => definition is 42 or 59 or >= 500 and <= 599;
+
+    private void ApplySkin(ulong steamId, Team team, SkinInfo info)
     {
         var definition = checked((ushort)info.DefinitionIndex!.Value);
         // These boundaries match WeaponSkins v0.5.5 Utilities.IsKnife/IsGlove.
-        if (definition is 42 or 59 or >= 500 and <= 599)
+        if (IsKnife(definition))
         {
             api.UpdateKnifeSkin(
                 steamId,
