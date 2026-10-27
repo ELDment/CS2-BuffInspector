@@ -1,25 +1,30 @@
 # BuffInspector
 
-🧩 在游戏内解析Buff的分享链接并更换皮肤
+在 CS2 游戏内解析 BUFF 分享链接并更换皮肤。
 
 ## 使用方法
 
-在游戏内聊天框中输入：
-
 ```text
-!buff <Buff分享链接>
+!buff <BUFF 分享链接>
 ```
 
-## 截图
+## 配置
 
-![BuffInspector1](BuffInspector1.png)
-![BuffInspector2](BuffInspector2.png)
+SwiftlyS2 自动生成配置文件：`swiftlys2/configs/plugins/BuffInspector/buff-inspector.jsonc`。
 
-## 依赖
+## 演示
 
-- [swiftly-solution/swiftlys2](https://github.com/swiftly-solution/swiftlys2)
-- [samyycX/WeaponSkins](https://github.com/samyycX/WeaponSkins)
+![BuffInspector1](assets/BuffInspector1.png)
+![BuffInspector2](assets/BuffInspector2.png)
 
-## 许可证
+## 依赖与构建
 
-本项目基于 GPL-3.0 许可证开源
+- .NET 10 SDK
+- [SwiftlyS2 v1.5.0](https://github.com/swiftly-solution/swiftlys2/releases/tag/v1.5.0)
+- [WeaponSkins v0.6.0-ci.24](https://github.com/samyycX/WeaponSkins/releases/tag/v0.6.0-ci.24)
+
+```powershell
+dotnet build BuffInspector.sln -c Release
+```
+
+将 `src/BuffInspector/bin/Release/net10.0/` 内文件复制到服务器的 `swiftlys2/plugins/BuffInspector/`。

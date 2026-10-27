@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    </PropertyGroup>
+    <ItemGroup>
+        <Reference Include="WeaponSkins.Shared">
+            <HintPath>../../dependencies/WeaponSkins.Shared.dll</HintPath>
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="SwiftlyS2.CS2">
+            <HintPath>../../dependencies/SwiftlyS2.CS2.dll</HintPath>
+            <Private>false</Private>
+        </Reference>
+        <PackageReference Include="HtmlAgilityPack" Version="1.13.0" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
+    </ItemGroup>
+</Project>

@@ -1,0 +1,44 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "C#: Fix braces",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "format",
+        "style",
+        "BuffInspector.sln",
+        "--diagnostics",
+        "IDE0011",
+        "--no-restore"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "C#: Format project",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "tool",
+        "run",
+        "csharpier",
+        "format",
+        "src/BuffInspector"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "dependsOn": "C#: Fix braces",
+      "dependsOrder": "sequence",
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    }
+  ]
+}
